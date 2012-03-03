@@ -825,8 +825,10 @@ static int _serialize(PyObject *input, struct serial_buffer *b, int dp)
 		while ((item = PyIter_Next(iter))) {
 			result = _serialize(item, b, dp);
 			Py_DECREF(item);
-			if (result)
+			if (result) {
+				Py_DECREF(iter);
 				return result;
+			}
 		}
 		Py_DECREF(iter);
 
