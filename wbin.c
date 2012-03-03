@@ -76,6 +76,9 @@ struct serial_buffer {
 #define TYPE_TUPLE  0x9
 #define TYPE_LONGER 0xA
 #define TYPE_PICKLE 0xB
+#if PY_VERSION_HEX >= 0x02060000 // PySet_Check in python 2.6
+#define TYPE_SET    0xC
+#endif
 
 #define TYPE_CMD 666
 #define TYPE_RESPONSE 667
@@ -459,6 +462,31 @@ static PyObject *_deserialize(struct serial_buffer *b, int intern)
 	case TYPE_PICKLE:
 		output = _deserialize_object(b);
 		break;
+#if PY_VERSION_HEX >= 0x02060000
+	case TYPE_SET:
+		size = _get_size(b);
+		if (0 > size)
+			break;
+
+		output = PySet_New(NULL);
+		if (!output)
+			break;
+
+		for (i = 0; i < size; i++) {
+			value = _deserialize(b, 0);
+			if (!value)
+				break;
+			result = PySet_Add(output, value);
+			if (result)
+				break;
+		}
+
+		if (size > i) {
+			Py_DECREF(output);
+			output = NULL;
+		}
+		break;
+#endif
 	default:
 		sprintf(error_str, "Unhandled type: <%d>", type);
 		PyErr_SetString(PyExc_TypeError, error_str);
@@ -780,6 +808,31 @@ static int _serialize(PyObject *input, struct serial_buffer *b, int dp)
 
 		goto done;
 	}
+
+#if PY_VERSION_HEX >= 0x02060000
+	if (PyAnySet_Check(input)) {
+		result = _check_size(b, sizeof(uint32_t));
+		if (result)
+			return result;
+
+		*(uint16_t *)(b->buf + b->off) = htons(TYPE_SET);
+		b->off += sizeof(uint16_t);
+		*(uint32_t *)(b->buf + b->off) = htonl(PySet_GET_SIZE(input));
+		b->off += sizeof(uint32_t);
+
+		PyObject *iter =PyObject_GetIter(input);
+		PyObject *item;
+		while (item = PyIter_Next(iter)) {
+			result = _serialize(item, b, dp);
+			Py_DECREF(item);
+			if (result)
+				return result;
+		}
+		Py_DECREF(iter);
+
+		goto done;
+	}
+#endif
 
 	if (cpick) {
 		result = _serialize_object(input, b, dp);
