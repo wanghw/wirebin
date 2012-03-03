@@ -266,7 +266,7 @@ static PyObject *_deserialize_object(struct serial_buffer *b)
 
 	b->off += size;
 
-	output = PyObject_CallFunction(loads, "O", value);
+	output = PyObject_CallFunctionObjArgs(loads, value, NULL);
 
 	Py_DECREF(value);
 err_data:
@@ -549,7 +549,7 @@ static int _serialize_object(PyObject *input, struct serial_buffer *b, int dp)
 		goto err_dump;
 	}
 
-	value = PyObject_CallFunction(dumps, "O", input);
+	value = PyObject_CallFunctionObjArgs(dumps, input, NULL);
 	if (!value) {
 		result = -EINVAL;
 		goto err_call;
