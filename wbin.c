@@ -820,9 +820,9 @@ static int _serialize(PyObject *input, struct serial_buffer *b, int dp)
 		*(uint32_t *)(b->buf + b->off) = htonl(PySet_GET_SIZE(input));
 		b->off += sizeof(uint32_t);
 
-		PyObject *iter =PyObject_GetIter(input);
+		PyObject *iter = PyObject_GetIter(input);
 		PyObject *item;
-		while (item = PyIter_Next(iter)) {
+		while ((item = PyIter_Next(iter))) {
 			result = _serialize(item, b, dp);
 			Py_DECREF(item);
 			if (result)
